@@ -4,17 +4,16 @@ import signal
 def main():
   from blessed import Terminal
   from deps.chars import specialChars, commonTopBorder, commonBottomBorder, commonEmptyLine
-  global renderMode
+  import math
   import time
   import subprocess
 
-  global signal
   global dockerCommandsSelectionInProgress
+  global renderMode
+  global signal
   global mainMenuList
   global currentMenuItemIndex
-  global screenActive
   global hideHelpText
-  global needsRender
 
   try: # If not already set, then set it.
     hideHelpText = hideHelpText
@@ -27,77 +26,129 @@ def main():
   def onResize(sig, action):
     global mainMenuList
     global currentMenuItemIndex
-    if (screenActive):
-      mainRender(1, mainMenuList, currentMenuItemIndex)
+    mainRender(1, mainMenuList, currentMenuItemIndex)
 
-  def installHassIo():
-    print(term.clear())
-    print("Install Home Assistant Supervisor")
-    print("./.native/hassio_supervisor.sh")
-    res = subprocess.call("./.native/hassio_supervisor.sh", shell=True)
+  def startStack():
+    print("Start Stack:")
+    print("docker-compose up -d --remove-orphans")
+    subprocess.call("docker-compose up -d", shell=True)
     print("")
-    if res == 0:
-      print("Preinstallation complete. Your system may run slow for a few hours as Hass.io installs its services.")
-      print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
-    else:
-      print("Preinstallation not completed.")
+    print("Stack Started")
     input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+  
+  def restartStack():
+    print("Restarting Stack...")
+    print("Stop Stack:")
+    print("docker-compose down")
+    subprocess.call("docker-compose down", shell=True)
+    print("")
+    print("Start Stack:")
+    print("docker-compose up -d --remove-orphans")
+    subprocess.call("docker-compose up -d", shell=True)
+    # print("docker-compose restart")
+    # subprocess.call("docker-compose restart", shell=True)
+    print("")
+    print("Stack Restarted")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def stopStack():
+    print("Stop Stack:")
+    print("docker-compose down")
+    subprocess.call("docker-compose down", shell=True)
+    print("")
+    print("Stack Stopped")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def stopAllStack():
+    print("Stop All Stack:")
+    print("docker container stop $(docker container ls -aq)")
+    subprocess.call("docker container stop $(docker container ls -aq)", shell=True)
+    print("")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def pruneVolumes():
+    print("Stop All Stack:")
+    print("docker container stop $(docker container ls -aq)")
+    subprocess.call("docker container stop $(docker container ls -aq)", shell=True)
+    print("")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def updateAllContainers():
+    print("Update All Containers:")
+    print("docker-compose down")
+    subprocess.call("docker-compose down", shell=True)
+    print("")
+    print("docker-compose pull")
+    subprocess.call("docker-compose pull", shell=True)
+    print("")
+    print("docker-compose build")
+    subprocess.call("docker-compose build", shell=True)
+    print("")
+    print("docker-compose up -d")
+    subprocess.call("docker-compose up -d", shell=True)
+    print("")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def deleteAndPruneVolumes():
+    print("Delete and prune volumes:")
+    print("docker system prune --volumes")
+    subprocess.call("docker system prune --volumes", shell=True)
+    print("")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def deleteAndPruneImages():
+    print("Delete and prune volumes:")
+    print("docker image prune -a")
+    subprocess.call("docker image prune -a", shell=True)
+    print("")
+    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
+    return True
+
+  def monitorLogs():
+    print("Monitor Logs:")
+    print("Press CTRL+X or CTRL+C to exit.")
+    time.sleep(2)
+    print("")
+    print("docker-compose logs -f")
     time.sleep(0.5)
-    return True
-
-  def installRtl433():
-    print(term.clear())
-    print("Install RTL_433")
-    print("bash ./.native/rtl_433.sh")
-    subprocess.call("bash ./.native/rtl_433.sh", shell=True)
+    subprocess.call("docker-compose logs -f", shell=True)
     print("")
+    time.sleep(0.5)
     input("Process terminated. Press [Enter] to show menu and continue.")
-    return True
-
-  def installRpiEasy():
-    print(term.clear())
-    print("Install RPIEasy")
-    print("bash ./.native/rpieasy.sh")
-    subprocess.call("bash ./.native/rpieasy.sh", shell=True)
-    print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
-    return True
-
-  def installDockerAndCompose():
-    print(term.clear())
-    print("Install docker")
-    print("Install docker-compose")
-    print("bash ./scripts/install_docker.sh install")
-    subprocess.call("bash ./scripts/install_docker.sh install", shell=True)
-    print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
-    return True
-
-  def upgradeDockerAndCompose():
-    print(term.clear())
-    print("Install docker")
-    print("Install docker-compose")
-    print("bash ./scripts/install_docker.sh upgrade")
-    subprocess.call("bash ./scripts/install_docker.sh upgrade", shell=True)
-    print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
+    needsRender = 1
     return True
 
   def goBack():
     global dockerCommandsSelectionInProgress
     global needsRender
-    global screenActive
-    screenActive = False
     dockerCommandsSelectionInProgress = False
     needsRender = 1
     return True
 
   mainMenuList = [
-    ["Hass.io (Supervisor)", installHassIo],
-    ["RTL_433", installRtl433],
-    ["RPIEasy", installRpiEasy],
-    ["Upgrade Docker and Docker-Compose", upgradeDockerAndCompose],
-    ["Install Docker and Docker-Compose", installDockerAndCompose],
+    ["Start stack", startStack],
+    ["Restart stack", restartStack],
+    ["Stop stack", stopStack],
+    ["Monitor Logs", monitorLogs],
+    ["Stop ALL running docker containers", stopAllStack],
+    ["Update all containers (may take a long time)", updateAllContainers],
+    ["Delete all stopped containers and docker volumes (prune volumes)", deleteAndPruneVolumes],
+    ["Delete all images not associated with container", deleteAndPruneImages],
     ["Back", goBack]
   ]
 
@@ -131,17 +182,20 @@ def main():
       
       print(toPrint)
 
+
   def mainRender(needsRender, menu, selection):
     term = Terminal()
 
     if needsRender == 1:
       print(term.clear())
+
+      print(term.clear())
       print(term.move_y(6 - hotzoneLocation[0]))
-      print(term.black_on_cornsilk4(term.center('Native Installs')))
+      print(term.black_on_cornsilk4(term.center('IOTstack Docker Commands')))
       print("")
       print(term.center(commonTopBorder(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
-      print(term.center("{bv}      Select service to install                                                 {bv}".format(bv=specialChars[renderMode]["borderVertical"])))
+      print(term.center("{bv}      Select Docker Command to run                                              {bv}".format(bv=specialChars[renderMode]["borderVertical"])))
       print(term.center(commonEmptyLine(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
@@ -169,13 +223,11 @@ def main():
 
 
 
-
   def runSelection(selection):
-    global needsRender
     import types
     if len(mainMenuList[selection]) > 1 and isinstance(mainMenuList[selection][1], types.FunctionType):
       mainMenuList[selection][1]()
-      needsRender = 1
+      mainRender(1, mainMenuList, currentMenuItemIndex)
     else:
       print(term.green_reverse('IOTstack Error: No function assigned to menu item: "{}"'.format(mainMenuList[selection][0])))
 
@@ -188,10 +240,8 @@ def main():
 
   if __name__ == 'builtins':
     term = Terminal()
+    signal.signal(signal.SIGWINCH, onResize)
     with term.fullscreen():
-      global screenActive
-      screenActive = True
-      signal.signal(signal.SIGWINCH, onResize)
       menuNavigateDirection = 0
       mainRender(needsRender, mainMenuList, currentMenuItemIndex)
       dockerCommandsSelectionInProgress = True
@@ -212,13 +262,11 @@ def main():
             if key.name == 'KEY_UP':
               menuNavigateDirection -= 1
             if key.name == 'KEY_ENTER':
+              mainRender(1, mainMenuList, currentMenuItemIndex)
               runSelection(currentMenuItemIndex)
               if dockerCommandsSelectionInProgress == False:
-                screenActive = False
                 return True
-              mainRender(1, mainMenuList, currentMenuItemIndex)
             if key.name == 'KEY_ESCAPE':
-              screenActive = False
               dockerCommandsSelectionInProgress = False
               return True
           elif key:
@@ -237,11 +285,10 @@ def main():
             while not isMenuItemSelectable(mainMenuList, currentMenuItemIndex):
               currentMenuItemIndex += menuNavigateDirection
               currentMenuItemIndex = currentMenuItemIndex % len(mainMenuList)
-    screenActive = False
     return True
 
-  screenActive = False
   return True
 
+originalSignalHandler = signal.getsignal(signal.SIGINT)
 main()
-
+signal.signal(signal.SIGWINCH, originalSignalHandler)

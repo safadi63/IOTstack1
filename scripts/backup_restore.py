@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import signal
 
 def main():
@@ -7,101 +8,96 @@ def main():
   global renderMode
   import time
   import subprocess
-
   global signal
-  global dockerCommandsSelectionInProgress
+
+  global backupRestoreSelectionInProgress
   global mainMenuList
   global currentMenuItemIndex
-  global screenActive
   global hideHelpText
-  global needsRender
-
+  
   try: # If not already set, then set it.
     hideHelpText = hideHelpText
   except:
     hideHelpText = False
 
   term = Terminal()
-  hotzoneLocation = [7, 0] # Top text
-  
-  def onResize(sig, action):
-    global mainMenuList
-    global currentMenuItemIndex
-    if (screenActive):
-      mainRender(1, mainMenuList, currentMenuItemIndex)
 
-  def installHassIo():
-    print(term.clear())
-    print("Install Home Assistant Supervisor")
-    print("./.native/hassio_supervisor.sh")
-    res = subprocess.call("./.native/hassio_supervisor.sh", shell=True)
+  def runBackup():
+    global needsRender
+    print("Execute Backup:")
+    subprocess.call("./scripts/backup.sh", shell=True)
     print("")
-    if res == 0:
-      print("Preinstallation complete. Your system may run slow for a few hours as Hass.io installs its services.")
-      print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
-    else:
-      print("Preinstallation not completed.")
-    input("Process terminated. Press [Enter] to show menu and continue.")
-    time.sleep(0.5)
+    print("Backup completed.")
+    print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
+    time.sleep(1)
+    needsRender = 1
     return True
 
-  def installRtl433():
-    print(term.clear())
-    print("Install RTL_433")
-    print("bash ./.native/rtl_433.sh")
-    subprocess.call("bash ./.native/rtl_433.sh", shell=True)
+  def dropboxInstall():
+    global needsRender
+    print("Install Dropbox:")
+    subprocess.call("git clone https://github.com/andreafabrizi/Dropbox-Uploader.git ~/Dropbox-Uploader", shell=True)
+    subprocess.call("chmod +x ~/Dropbox-Uploader/dropbox_uploader.sh", shell=True)
+    subprocess.call("cd ~/Dropbox-Uploader && ./dropbox_uploader.sh", shell=True)
     print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
+    print("Dropbox install finished")
+    print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
+    time.sleep(1)
+    needsRender = 1
     return True
 
-  def installRpiEasy():
-    print(term.clear())
-    print("Install RPIEasy")
-    print("bash ./.native/rpieasy.sh")
-    subprocess.call("bash ./.native/rpieasy.sh", shell=True)
+  def rcloneInstall():
+    global needsRender
+    print("Install rClone:")
+    print("sudo apt install -y rclone")
+    subprocess.call("sudo apt install -y rclone", shell=True)
     print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
+    print("rClone install finished")
+    print("Please run 'rclone config' to configure the rclone google drive backup")
+    print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
+    needsRender = 1
     return True
 
-  def installDockerAndCompose():
-    print(term.clear())
-    print("Install docker")
-    print("Install docker-compose")
-    print("bash ./scripts/install_docker.sh install")
-    subprocess.call("bash ./scripts/install_docker.sh install", shell=True)
+  def rCloneSetup():
+    global needsRender
+    print("Setup rclone:")
+    subprocess.call("rclone config", shell=True)
     print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
+    print("rclone setup completed. Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
+    time.sleep(1)
+    needsRender = 1
     return True
 
-  def upgradeDockerAndCompose():
-    print(term.clear())
-    print("Install docker")
-    print("Install docker-compose")
-    print("bash ./scripts/install_docker.sh upgrade")
-    subprocess.call("bash ./scripts/install_docker.sh upgrade", shell=True)
+  def runRestore():
+    global needsRender
+    print("Execute Restore:")
+    subprocess.call("./scripts/restore.sh", shell=True)
     print("")
-    input("Process terminated. Press [Enter] to show menu and continue.")
+    print("Restore completed.")
+    print("Press [Up] or [Down] arrow key to show the menu if it has scrolled too far.")
+    time.sleep(1)
+    needsRender = 1
     return True
 
   def goBack():
-    global dockerCommandsSelectionInProgress
+    global backupRestoreSelectionInProgress
     global needsRender
-    global screenActive
-    screenActive = False
-    dockerCommandsSelectionInProgress = False
+    backupRestoreSelectionInProgress = False
     needsRender = 1
     return True
 
   mainMenuList = [
-    ["Hass.io (Supervisor)", installHassIo],
-    ["RTL_433", installRtl433],
-    ["RPIEasy", installRpiEasy],
-    ["Upgrade Docker and Docker-Compose", upgradeDockerAndCompose],
-    ["Install Docker and Docker-Compose", installDockerAndCompose],
+    ["Run backup", runBackup],
+    ["Install Dropbox", dropboxInstall],
+    ["Install rclone", rcloneInstall],
+    ["Setup rclone (must be installed first)", rCloneSetup],
+    ["Restore from backup", runRestore],
     ["Back", goBack]
   ]
 
-  dockerCommandsSelectionInProgress = True
+  hotzoneLocation = [7, 0] # Top text
+
+  backupRestoreSelectionInProgress = True
   currentMenuItemIndex = 0
   menuNavigateDirection = 0
 
@@ -111,10 +107,14 @@ def main():
   #  2 = Hotzone only
   needsRender = 1
 
-  def renderHotZone(term, menu, selection, hotzoneLocation):
-    print(term.move(hotzoneLocation[0], hotzoneLocation[1]))
-    lineLengthAtTextStart = 71
+  def onResize(sig, action):
+    global mainMenuList
+    global currentMenuItemIndex
+    mainRender(1, mainMenuList, currentMenuItemIndex)
 
+  def renderHotZone(term, menu, selection, hotzoneLocation):
+    lineLengthAtTextStart = 71
+    print(term.move(hotzoneLocation[0], hotzoneLocation[1]))
     for (index, menuItem) in enumerate(menu):
       toPrint = ""
       if index == selection:
@@ -133,15 +133,15 @@ def main():
 
   def mainRender(needsRender, menu, selection):
     term = Terminal()
-
+    
     if needsRender == 1:
       print(term.clear())
       print(term.move_y(6 - hotzoneLocation[0]))
-      print(term.black_on_cornsilk4(term.center('Native Installs')))
+      print(term.black_on_cornsilk4(term.center('IOTstack Backup Commands')))
       print("")
       print(term.center(commonTopBorder(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
-      print(term.center("{bv}      Select service to install                                                 {bv}".format(bv=specialChars[renderMode]["borderVertical"])))
+      print(term.center("{bv}      Select backup command to run                                              {bv}".format(bv=specialChars[renderMode]["borderVertical"])))
       print(term.center(commonEmptyLine(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
       print(term.center(commonEmptyLine(renderMode)))
@@ -167,17 +167,15 @@ def main():
       print(term.center(commonEmptyLine(renderMode)))
       print(term.center(commonBottomBorder(renderMode)))
 
-
-
-
   def runSelection(selection):
     global needsRender
+    mainRender(1, mainMenuList, currentMenuItemIndex)
     import types
     if len(mainMenuList[selection]) > 1 and isinstance(mainMenuList[selection][1], types.FunctionType):
       mainMenuList[selection][1]()
-      needsRender = 1
     else:
       print(term.green_reverse('IOTstack Error: No function assigned to menu item: "{}"'.format(mainMenuList[selection][0])))
+    needsRender = 1
 
   def isMenuItemSelectable(menu, index):
     if len(menu) > index:
@@ -187,16 +185,15 @@ def main():
     return True
 
   if __name__ == 'builtins':
+    global signal
     term = Terminal()
+    signal.signal(signal.SIGWINCH, onResize)
     with term.fullscreen():
-      global screenActive
-      screenActive = True
-      signal.signal(signal.SIGWINCH, onResize)
       menuNavigateDirection = 0
       mainRender(needsRender, mainMenuList, currentMenuItemIndex)
-      dockerCommandsSelectionInProgress = True
+      backupRestoreSelectionInProgress = True
       with term.cbreak():
-        while dockerCommandsSelectionInProgress:
+        while backupRestoreSelectionInProgress:
           menuNavigateDirection = 0
 
           if not needsRender == 0: # Only rerender when changed to prevent flickering
@@ -213,13 +210,10 @@ def main():
               menuNavigateDirection -= 1
             if key.name == 'KEY_ENTER':
               runSelection(currentMenuItemIndex)
-              if dockerCommandsSelectionInProgress == False:
-                screenActive = False
+              if backupRestoreSelectionInProgress == False:
                 return True
-              mainRender(1, mainMenuList, currentMenuItemIndex)
             if key.name == 'KEY_ESCAPE':
-              screenActive = False
-              dockerCommandsSelectionInProgress = False
+              backupRestoreSelectionInProgress = False
               return True
           elif key:
             if key == 'h': # H pressed
@@ -237,11 +231,10 @@ def main():
             while not isMenuItemSelectable(mainMenuList, currentMenuItemIndex):
               currentMenuItemIndex += menuNavigateDirection
               currentMenuItemIndex = currentMenuItemIndex % len(mainMenuList)
-    screenActive = False
     return True
 
-  screenActive = False
   return True
 
+originalSignalHandler = signal.getsignal(signal.SIGINT)
 main()
-
+signal.signal(signal.SIGWINCH, originalSignalHandler)
